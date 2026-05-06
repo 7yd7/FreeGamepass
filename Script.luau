@@ -130,14 +130,16 @@ end
 local function buildPurchaseOperation(id)
     if LastPrompt.Type == "GamePass" then
         return string.format(
-            "local MarketplaceService = game:GetService(\"MarketplaceService\")\nMarketplaceService:SignalPromptGamePassPurchaseFinished(%d, %d, true)",
+            "local MarketplaceService = game:GetService(\"MarketplaceService\")\nlocal Players = game:GetService(\"Players\")\nlocal LocalPlayer = Players.LocalPlayer\nlocal success = pcall(function()\n    MarketplaceService:SignalPromptGamePassPurchaseFinished(%d, %d, true)\nend)\nif not success then\n    pcall(function()\n        MarketplaceService:PromptGamePassPurchaseFinished(LocalPlayer, %d)\n    end)\nend",
             LocalPlayer.UserId,
+            id,
             id
         )
     end
     return string.format(
-        "local MarketplaceService = game:GetService(\"MarketplaceService\")\nMarketplaceService:SignalPromptProductPurchaseFinished(%d, %d, true)",
+        "local MarketplaceService = game:GetService(\"MarketplaceService\")\nlocal Players = game:GetService(\"Players\")\nlocal LocalPlayer = Players.LocalPlayer\nlocal success = pcall(function()\n    MarketplaceService:SignalPromptProductPurchaseFinished(%d, %d, true)\nend)\nif not success then\n    pcall(function()\n        MarketplaceService:PromptProductPurchaseFinished(LocalPlayer, %d)\n    end)\nend",
         LocalPlayer.UserId,
+        id,
         id
     )
 end
