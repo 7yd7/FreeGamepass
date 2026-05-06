@@ -9,6 +9,10 @@ local COLORS = {
     IDLE = Color3.fromRGB(34, 214, 78),
     HOVER = Color3.fromRGB(42, 232, 90),
 }
+local COPY_COLORS = {
+    IDLE = Color3.fromRGB(255, 154, 46),
+    HOVER = Color3.fromRGB(255, 176, 84),
+}
 local TWEEN_SPEED = TweenInfo.new(0.045, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local LastPrompt = { Id = nil, Type = nil }
 local SETTINGS_DEFAULTS = {
@@ -117,17 +121,33 @@ local function finishPurchase(id)
     end
 end
 
-local function decorateButton(btn, text, zIndex)
+local function buildPurchaseOperation(id)
+    if LastPrompt.Type == "GamePass" then
+        return string.format(
+            "MarketplaceService:SignalPromptGamePassPurchaseFinished(%d, %d, true)",
+            LocalPlayer.UserId,
+            id
+        )
+    end
+    return string.format(
+        "MarketplaceService:SignalPromptProductPurchaseFinished(%d, %d, true)",
+        LocalPlayer.UserId,
+        id
+    )
+end
+
+local function decorateButton(btn, text, zIndex, palette)
+    local colors = palette or COLORS
     btn.Visible = true
     btn.Active = true
     btn.Selectable = true
     btn.AutoButtonColor = false
     btn.ZIndex = zIndex
-    btn.BackgroundColor3 = COLORS.IDLE
+    btn.BackgroundColor3 = colors.IDLE
     btn.BackgroundTransparency = 0.1
     trySet(btn, "Interactable", true)
     if btn:IsA("ImageButton") then
-        btn.ImageColor3 = COLORS.IDLE
+        btn.ImageColor3 = colors.IDLE
     end
 
     for _, desc in ipairs(btn:GetDescendants()) do
@@ -145,13 +165,14 @@ local function decorateButton(btn, text, zIndex)
     end
 end
 
-local function wireHover(btn)
+local function wireHover(btn, palette)
+    local colors = palette or COLORS
     btn.MouseEnter:Connect(function()
-        applyVisualState(btn, COLORS.HOVER)
+        applyVisualState(btn, colors.HOVER)
     end)
 
     btn.MouseLeave:Connect(function()
-        applyVisualState(btn, COLORS.IDLE)
+        applyVisualState(btn, colors.IDLE)
     end)
 end
 
@@ -166,7 +187,7 @@ local function injectButtons(originalBtn)
         freeBtn.Name = "FreeButton"
         freeBtn.Parent = parent
         decorateButton(freeBtn, "Free", (originalBtn.ZIndex or 1) + 10)
-        wireHover(freeBtn)
+        wireHover(freeBtn, COLORS)
 
         freeBtn.Activated:Connect(function()
             local id = LastPrompt.Id
@@ -188,8 +209,8 @@ local function injectButtons(originalBtn)
     copyBtn.Parent = parent
 
     local freeBtn = parent:FindFirstChild("FreeButton")
-    decorateButton(copyBtn, "Copy", freeBtn and freeBtn.ZIndex or ((originalBtn.ZIndex or 1) + 10))
-    wireHover(copyBtn)
+    decorateButton(copyBtn, "Copy", freeBtn and freeBtn.ZIndex or ((originalBtn.ZIndex or 1) + 10), COPY_COLORS)
+    wireHover(copyBtn, COPY_COLORS)
 
     if freeBtn and not parent:FindFirstChildOfClass("UIListLayout") then
         copyBtn.Position = freeBtn.Position + UDim2.fromOffset(0, 42)
@@ -199,15 +220,16 @@ local function injectButtons(originalBtn)
         local id = LastPrompt.Id
         if not id then return end
 
+        local operationText = buildPurchaseOperation(id)
         local copied = pcall(function()
-            setclipboard(tostring(id))
+            setclipboard(operationText)
         end)
 
         if copied then
-            applyVisualState(copyBtn, COLORS.HOVER)
+            applyVisualState(copyBtn, COPY_COLORS.HOVER)
             task.wait(0.05)
         end
-        applyVisualState(copyBtn, COLORS.IDLE)
+        applyVisualState(copyBtn, COPY_COLORS.IDLE)
     end)
 end
 
