@@ -52,6 +52,18 @@ local function isSettingEnabled(name)
     return getSettings()[name] == true
 end
 
+local RuntimeState = nil
+pcall(function()
+    local env = type(getgenv) == "function" and getgenv() or nil
+    if type(env) == "table" then
+        env.__FreeGamepassRuntime = env.__FreeGamepassRuntime or { runId = 0 }
+        env.__FreeGamepassRuntime.runId = env.__FreeGamepassRuntime.runId + 1
+        RuntimeState = env.__FreeGamepassRuntime
+    end
+end)
+
+local CURRENT_RUN_ID = RuntimeState and RuntimeState.runId or os.clock()
+
 local function toggleRobloxMenu()
     pcall(function()
         GuiService:SetMenuIsOpen(true)
@@ -130,16 +142,14 @@ end
 local function buildPurchaseOperation(id)
     if LastPrompt.Type == "GamePass" then
         return string.format(
-            "local MarketplaceService = game:GetService(\"MarketplaceService\")\nlocal Players = game:GetService(\"Players\")\nlocal LocalPlayer = Players.LocalPlayer\nlocal success = pcall(function()\n    MarketplaceService:SignalPromptGamePassPurchaseFinished(%d, %d, true)\nend)\nif not success then\n    pcall(function()\n        MarketplaceService:PromptGamePassPurchaseFinished(LocalPlayer, %d)\n    end)\nend",
+            "local MarketplaceService = game:GetService(\"MarketplaceService\")\n\nMarketplaceService:SignalPromptGamePassPurchaseFinished(%d, %d, true)",
             LocalPlayer.UserId,
-            id,
             id
         )
     end
     return string.format(
-        "local MarketplaceService = game:GetService(\"MarketplaceService\")\nlocal Players = game:GetService(\"Players\")\nlocal LocalPlayer = Players.LocalPlayer\nlocal success = pcall(function()\n    MarketplaceService:SignalPromptProductPurchaseFinished(%d, %d, true)\nend)\nif not success then\n    pcall(function()\n        MarketplaceService:PromptProductPurchaseFinished(LocalPlayer, %d)\n    end)\nend",
+        "local MarketplaceService = game:GetService(\"MarketplaceService\")\n\nMarketplaceService:SignalPromptProductPurchaseFinished(%d, %d, true)",
         LocalPlayer.UserId,
-        id,
         id
     )
 end
@@ -194,12 +204,15 @@ local function wireHover(btn, palette)
 end
 
 local function injectButtons(originalBtn)
+    if not originalBtn or originalBtn.Name == "FreeButton" or originalBtn.Name == "CopyButton" then
+        return
+    end
+
     local parent = originalBtn and originalBtn.Parent
     if not parent then return end
 
     if not parent:FindFirstChild("FreeButton") then
-        task.wait(0.03)
-
+        task.wait(0.01)
         local freeBtn = originalBtn:Clone()
         freeBtn.Name = "FreeButton"
         freeBtn.Parent = parent
@@ -217,10 +230,19 @@ local function injectButtons(originalBtn)
         end)
     end
 
-    if not isSettingEnabled("CopyButton") or parent:FindFirstChild("CopyButton") then
+    if not isSettingEnabled("CopyButton") then
+        local existingCopy = parent:FindFirstChild("CopyButton")
+        if existingCopy then
+            existingCopy:Destroy()
+        end
         return
     end
 
+    if parent:FindFirstChild("CopyButton") then
+        return
+    end
+
+    task.wait(0.01)
     local copyBtn = originalBtn:Clone()
     copyBtn.Name = "CopyButton"
     copyBtn.Parent = parent
@@ -272,6 +294,10 @@ end
 
 task.spawn(function()
     while true do
+        if RuntimeState and RuntimeState.runId ~= CURRENT_RUN_ID then
+            break
+        end
+
         for _, child in ipairs(CoreGui:GetChildren()) do
             if child.Name == "FoundationOverlay" then
                 local actions = getActions(child)
