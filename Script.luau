@@ -12,6 +12,7 @@ local MarketplaceService = game:GetService("MarketplaceService")
 local TweenService = game:GetService("TweenService")
 local Players = game:GetService("Players")
 local GuiService = game:GetService("GuiService")
+local UIS = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
 local COLORS = {
@@ -72,7 +73,7 @@ pcall(function()
 end)
 
 local CURRENT_RUN_ID = RuntimeState and RuntimeState.runId or os.clock()
-local AutoLoopState = { Running = false, ThreadId = 0 }
+local AutoLoopState = { Running = false, ThreadId = 0, StopGui = nil }
 
 local function toggleRobloxMenu()
     pcall(function()
@@ -187,6 +188,13 @@ local function stopAutoLoop()
     AutoLoopState.ThreadId = AutoLoopState.ThreadId + 1
 end
 
+local function destroyAutoStopButton()
+    if AutoLoopState.StopGui and AutoLoopState.StopGui.Parent then
+        AutoLoopState.StopGui:Destroy()
+    end
+    AutoLoopState.StopGui = nil
+end
+
 local function startAutoLoop()
     if AutoLoopState.Running then return end
     AutoLoopState.Running = true
@@ -206,6 +214,97 @@ local function startAutoLoop()
             task.wait(interval)
         end
     end)
+end
+
+local function makeDraggable(frame)
+    local dragging = false
+    local dragInput = nil
+    local dragStart = nil
+    local startPos = nil
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        frame.Position = UDim2.new(
+            startPos.X.Scale,
+            startPos.X.Offset + delta.X,
+            startPos.Y.Scale,
+            startPos.Y.Offset + delta.Y
+        )
+    end
+
+    frame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = frame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    frame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            dragInput = input
+        end
+    end)
+
+    UIS.InputChanged:Connect(function(input)
+        if dragging and input == dragInput then
+            update(input)
+        end
+    end)
+end
+
+local function createAutoStopButton()
+    destroyAutoStopButton()
+
+    local gui = Instance.new("ScreenGui")
+    local button = Instance.new("TextButton")
+    local corner = Instance.new("UICorner")
+    local icon = Instance.new("ImageLabel")
+    local aspect = Instance.new("UIAspectRatioConstraint")
+
+    gui.Name = "AutoStopButton"
+    gui.IgnoreGuiInset = true
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.Parent = CoreGui
+
+    button.Name = "Button"
+    button.Parent = gui
+    button.AnchorPoint = Vector2.new(0.5, 0.5)
+    button.Position = UDim2.new(0.5, 0, 0, 34)
+    button.Size = UDim2.new(0.039, 0, 0.069, 0)
+    button.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    button.BackgroundTransparency = 0.4
+    button.BorderSizePixel = 0
+    button.AutoButtonColor = false
+    button.ZIndex = 99999999
+    button.Text = ""
+
+    corner.CornerRadius = UDim.new(0, 99999)
+    corner.Parent = button
+
+    icon.Parent = button
+    icon.BackgroundTransparency = 1
+    icon.Position = UDim2.new(0.1, 0, 0.1, 0)
+    icon.Size = UDim2.new(0.8, 0, 0.8, 0)
+    icon.Image = "rbxassetid://85867483111516"
+    icon.ImageColor3 = Color3.fromRGB(255, 90, 90)
+
+    aspect.Parent = button
+    aspect.AspectRatio = 1
+
+    makeDraggable(button)
+
+    button.MouseButton1Click:Connect(function()
+        stopAutoLoop()
+        destroyAutoStopButton()
+    end)
+
+    AutoLoopState.StopGui = gui
 end
 
 local function decorateButton(btn, text, zIndex, palette)
@@ -314,6 +413,7 @@ local function injectButtons(originalBtn)
             existingAuto:Destroy()
         end
         stopAutoLoop()
+        destroyAutoStopButton()
         return
     end
 
@@ -332,18 +432,16 @@ local function injectButtons(originalBtn)
     positionButtonBelow(anchorBtn, autoBtn, parent)
 
     autoBtn.Activated:Connect(function()
+        toggleRobloxMenu()
+
         if AutoLoopState.Running then
             stopAutoLoop()
-            autoBtn:Destroy()
+            destroyAutoStopButton()
             return
         end
 
         startAutoLoop()
-        for _, desc in ipairs(autoBtn:GetDescendants()) do
-            if desc:IsA("TextLabel") or desc:IsA("TextButton") then
-                desc.Text = "Stop"
-            end
-        end
+        createAutoStopButton()
         applyVisualState(autoBtn, AUTO_COLORS.HOVER)
     end)
 end
