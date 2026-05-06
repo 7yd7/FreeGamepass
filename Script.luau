@@ -1,6 +1,9 @@
 --[[
 getgenv().Settings = {
     CopyButton = false,
+    ╤=≡・Auto・≡=╤
+    AutoButton = false,
+    AutoInterval = 0.1
 }
 ]]
 
@@ -19,10 +22,16 @@ local COPY_COLORS = {
     IDLE = Color3.fromRGB(255, 154, 46),
     HOVER = Color3.fromRGB(255, 176, 84),
 }
+local AUTO_COLORS = {
+    IDLE = Color3.fromRGB(210, 72, 72),
+    HOVER = Color3.fromRGB(232, 98, 98),
+}
 local TWEEN_SPEED = TweenInfo.new(0.045, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local LastPrompt = { Id = nil, Type = nil }
 local SETTINGS_DEFAULTS = {
     CopyButton = false,
+    AutoButton = false,
+    AutoInterval = 0.3,
 }
 
 local function getSettings()
@@ -63,6 +72,7 @@ pcall(function()
 end)
 
 local CURRENT_RUN_ID = RuntimeState and RuntimeState.runId or os.clock()
+local AutoLoopState = { Running = false, ThreadId = 0 }
 
 local function toggleRobloxMenu()
     pcall(function()
@@ -163,6 +173,41 @@ local function positionCopyButton(freeBtn, copyBtn, parent)
     copyBtn.Position = freeBtn.Position + UDim2.fromOffset(0, 42)
 end
 
+local function positionButtonBelow(anchorBtn, btn, parent)
+    if not anchorBtn then return end
+    if parent:FindFirstChildOfClass("UIListLayout") then
+        btn.LayoutOrder = (anchorBtn.LayoutOrder or 0) + 1
+        return
+    end
+    btn.Position = anchorBtn.Position + UDim2.fromOffset(0, 42)
+end
+
+local function stopAutoLoop()
+    AutoLoopState.Running = false
+    AutoLoopState.ThreadId = AutoLoopState.ThreadId + 1
+end
+
+local function startAutoLoop()
+    if AutoLoopState.Running then return end
+    AutoLoopState.Running = true
+    AutoLoopState.ThreadId = AutoLoopState.ThreadId + 1
+    local myThreadId = AutoLoopState.ThreadId
+    task.spawn(function()
+        while AutoLoopState.Running and AutoLoopState.ThreadId == myThreadId do
+            local id = LastPrompt.Id
+            if id then
+                finishPurchase(id)
+                toggleRobloxMenu()
+            end
+            local interval = getSettings().AutoInterval
+            if type(interval) ~= "number" or interval <= 0 then
+                interval = 0.3
+            end
+            task.wait(interval)
+        end
+    end)
+end
+
 local function decorateButton(btn, text, zIndex, palette)
     local colors = palette or COLORS
     btn.Visible = true
@@ -204,7 +249,7 @@ local function wireHover(btn, palette)
 end
 
 local function injectButtons(originalBtn)
-    if not originalBtn or originalBtn.Name == "FreeButton" or originalBtn.Name == "CopyButton" then
+    if not originalBtn or originalBtn.Name == "FreeButton" or originalBtn.Name == "CopyButton" or originalBtn.Name == "AutoButton" then
         return
     end
 
@@ -235,37 +280,71 @@ local function injectButtons(originalBtn)
         if existingCopy then
             existingCopy:Destroy()
         end
+    elseif not parent:FindFirstChild("CopyButton") then
+        task.wait(0.01)
+        local copyBtn = originalBtn:Clone()
+        copyBtn.Name = "CopyButton"
+        copyBtn.Parent = parent
+
+        local freeBtn = parent:FindFirstChild("FreeButton")
+        decorateButton(copyBtn, "Copy", freeBtn and freeBtn.ZIndex or ((originalBtn.ZIndex or 1) + 10), COPY_COLORS)
+        wireHover(copyBtn, COPY_COLORS)
+        positionCopyButton(freeBtn, copyBtn, parent)
+
+        copyBtn.Activated:Connect(function()
+            local id = LastPrompt.Id
+            if not id then return end
+
+            local operationText = buildPurchaseOperation(id)
+            local copied = pcall(function()
+                setclipboard(operationText)
+            end)
+
+            if copied then
+                applyVisualState(copyBtn, COPY_COLORS.HOVER)
+                task.wait(0.05)
+            end
+            applyVisualState(copyBtn, COPY_COLORS.IDLE)
+        end)
+    end
+
+    if not isSettingEnabled("AutoButton") then
+        local existingAuto = parent:FindFirstChild("AutoButton")
+        if existingAuto then
+            existingAuto:Destroy()
+        end
+        stopAutoLoop()
         return
     end
 
-    if parent:FindFirstChild("CopyButton") then
+    if parent:FindFirstChild("AutoButton") then
         return
     end
 
     task.wait(0.01)
-    local copyBtn = originalBtn:Clone()
-    copyBtn.Name = "CopyButton"
-    copyBtn.Parent = parent
+    local autoBtn = originalBtn:Clone()
+    autoBtn.Name = "AutoButton"
+    autoBtn.Parent = parent
 
-    local freeBtn = parent:FindFirstChild("FreeButton")
-    decorateButton(copyBtn, "Copy", freeBtn and freeBtn.ZIndex or ((originalBtn.ZIndex or 1) + 10), COPY_COLORS)
-    wireHover(copyBtn, COPY_COLORS)
-    positionCopyButton(freeBtn, copyBtn, parent)
+    local anchorBtn = parent:FindFirstChild("CopyButton") or parent:FindFirstChild("FreeButton")
+    decorateButton(autoBtn, "Auto", (anchorBtn and anchorBtn.ZIndex) or ((originalBtn.ZIndex or 1) + 10), AUTO_COLORS)
+    wireHover(autoBtn, AUTO_COLORS)
+    positionButtonBelow(anchorBtn, autoBtn, parent)
 
-    copyBtn.Activated:Connect(function()
-        local id = LastPrompt.Id
-        if not id then return end
-
-        local operationText = buildPurchaseOperation(id)
-        local copied = pcall(function()
-            setclipboard(operationText)
-        end)
-
-        if copied then
-            applyVisualState(copyBtn, COPY_COLORS.HOVER)
-            task.wait(0.05)
+    autoBtn.Activated:Connect(function()
+        if AutoLoopState.Running then
+            stopAutoLoop()
+            autoBtn:Destroy()
+            return
         end
-        applyVisualState(copyBtn, COPY_COLORS.IDLE)
+
+        startAutoLoop()
+        for _, desc in ipairs(autoBtn:GetDescendants()) do
+            if desc:IsA("TextLabel") or desc:IsA("TextButton") then
+                desc.Text = "Stop"
+            end
+        end
+        applyVisualState(autoBtn, AUTO_COLORS.HOVER)
     end)
 end
 
