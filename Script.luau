@@ -1,3 +1,4 @@
+-- by 7yd7
 --[[
 getgenv().Settings = {
     CopyButton = false,
