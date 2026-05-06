@@ -1,7 +1,7 @@
 --[[
 getgenv().Settings = {
     CopyButton = false,
-    ╤=≡・Auto・≡=╤
+    -------------------
     AutoButton = false,
     AutoInterval = 0.1
 }
@@ -221,9 +221,14 @@ local function makeDraggable(frame)
     local dragInput = nil
     local dragStart = nil
     local startPos = nil
+    local didDrag = false
+    local DRAG_THRESHOLD = 6
 
     local function update(input)
         local delta = input.Position - dragStart
+        if math.abs(delta.X) > DRAG_THRESHOLD or math.abs(delta.Y) > DRAG_THRESHOLD then
+            didDrag = true
+        end
         frame.Position = UDim2.new(
             startPos.X.Scale,
             startPos.X.Offset + delta.X,
@@ -235,6 +240,7 @@ local function makeDraggable(frame)
     frame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
             dragging = true
+            didDrag = false
             dragStart = input.Position
             startPos = frame.Position
             input.Changed:Connect(function()
@@ -256,6 +262,12 @@ local function makeDraggable(frame)
             update(input)
         end
     end)
+
+    return function()
+        local wasDragged = didDrag
+        didDrag = false
+        return wasDragged
+    end
 end
 
 local function createAutoStopButton()
@@ -291,15 +303,18 @@ local function createAutoStopButton()
     icon.BackgroundTransparency = 1
     icon.Position = UDim2.new(0.1, 0, 0.1, 0)
     icon.Size = UDim2.new(0.8, 0, 0.8, 0)
-    icon.Image = "rbxassetid://85867483111516"
+    icon.Image = "rbxassetid://98003862321782"
     icon.ImageColor3 = Color3.fromRGB(255, 90, 90)
 
     aspect.Parent = button
     aspect.AspectRatio = 1
 
-    makeDraggable(button)
+    local wasDragged = makeDraggable(button)
 
-    button.MouseButton1Click:Connect(function()
+    button.Activated:Connect(function()
+        if wasDragged() then
+            return
+        end
         stopAutoLoop()
         destroyAutoStopButton()
     end)
