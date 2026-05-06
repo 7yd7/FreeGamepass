@@ -1,3 +1,9 @@
+--[[
+getgenv().Settings = {
+    CopyButton = false,
+}
+]]
+
 local CoreGui = game:GetService("CoreGui")
 local MarketplaceService = game:GetService("MarketplaceService")
 local TweenService = game:GetService("TweenService")
@@ -124,16 +130,25 @@ end
 local function buildPurchaseOperation(id)
     if LastPrompt.Type == "GamePass" then
         return string.format(
-            "MarketplaceService:SignalPromptGamePassPurchaseFinished(%d, %d, true)",
+            "local MarketplaceService = game:GetService(\"MarketplaceService\")\nMarketplaceService:SignalPromptGamePassPurchaseFinished(%d, %d, true)",
             LocalPlayer.UserId,
             id
         )
     end
     return string.format(
-        "MarketplaceService:SignalPromptProductPurchaseFinished(%d, %d, true)",
+        "local MarketplaceService = game:GetService(\"MarketplaceService\")\nMarketplaceService:SignalPromptProductPurchaseFinished(%d, %d, true)",
         LocalPlayer.UserId,
         id
     )
+end
+
+local function positionCopyButton(freeBtn, copyBtn, parent)
+    if not freeBtn then return end
+    if parent:FindFirstChildOfClass("UIListLayout") then
+        copyBtn.LayoutOrder = (freeBtn.LayoutOrder or 0) + 1
+        return
+    end
+    copyBtn.Position = freeBtn.Position + UDim2.fromOffset(0, 42)
 end
 
 local function decorateButton(btn, text, zIndex, palette)
@@ -211,10 +226,7 @@ local function injectButtons(originalBtn)
     local freeBtn = parent:FindFirstChild("FreeButton")
     decorateButton(copyBtn, "Copy", freeBtn and freeBtn.ZIndex or ((originalBtn.ZIndex or 1) + 10), COPY_COLORS)
     wireHover(copyBtn, COPY_COLORS)
-
-    if freeBtn and not parent:FindFirstChildOfClass("UIListLayout") then
-        copyBtn.Position = freeBtn.Position + UDim2.fromOffset(0, 42)
-    end
+    positionCopyButton(freeBtn, copyBtn, parent)
 
     copyBtn.Activated:Connect(function()
         local id = LastPrompt.Id
