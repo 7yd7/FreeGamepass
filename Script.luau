@@ -128,42 +128,82 @@ MarketplaceService.PromptProductPurchaseRequested:Connect(function(player, id)
     capturePrompt(player, id, "Product")
 end)
 
+MarketplaceService.PromptPurchaseRequested:Connect(function(player, id)
+    capturePrompt(player, id, "Asset")
+end)
+
+MarketplaceService.PromptBundlePurchaseRequested:Connect(function(player, id)
+    capturePrompt(player, id, "Bundle")
+end)
+
+MarketplaceService.PromptPremiumPurchaseRequested:Connect(function(player)
+    capturePrompt(player, 0, "Premium")
+end)
+
+local function fireEventFallback(event, ...)
+    if type(firesignal) == "function" then
+        pcall(firesignal, event, ...)
+    end
+end
+
 local function finishPurchase(id)
     if LastPrompt.Type == "GamePass" then
         local success = pcall(function()
             MarketplaceService:SignalPromptGamePassPurchaseFinished(LocalPlayer.UserId, id, true)
         end)
         if not success then
-            pcall(function()
-                MarketplaceService:PromptGamePassPurchaseFinished(LocalPlayer, id)
-            end)
+            fireEventFallback(MarketplaceService.PromptGamePassPurchaseFinished, LocalPlayer, id, true)
         end
-        return
-    end
 
-    local success = pcall(function()
-        MarketplaceService:SignalPromptProductPurchaseFinished(LocalPlayer.UserId, id, true)
-    end)
-    if not success then
-        pcall(function()
-            MarketplaceService:PromptProductPurchaseFinished(LocalPlayer, id)
+    elseif LastPrompt.Type == "Product" then
+        local success = pcall(function()
+            MarketplaceService:SignalPromptProductPurchaseFinished(LocalPlayer.UserId, id, true)
         end)
+        if not success then
+            fireEventFallback(MarketplaceService.PromptProductPurchaseFinished, LocalPlayer.UserId, id, true)
+        end
+
+    elseif LastPrompt.Type == "Asset" then
+        local success = pcall(function()
+            MarketplaceService:SignalPromptPurchaseFinished(LocalPlayer.UserId, id, true)
+        end)
+        if not success then
+            fireEventFallback(MarketplaceService.PromptPurchaseFinished, LocalPlayer, id, true)
+        end
+
+    elseif LastPrompt.Type == "Bundle" then
+        local success = pcall(function()
+            MarketplaceService:SignalPromptBundlePurchaseFinished(LocalPlayer.UserId, id, true)
+        end)
+        if not success then
+            fireEventFallback(MarketplaceService.PromptBundlePurchaseFinished, LocalPlayer, id, true)
+        end
+
+    elseif LastPrompt.Type == "Premium" then
+        local success = pcall(function()
+            MarketplaceService:SignalPromptPremiumPurchaseFinished(true)
+        end)
+        if not success then
+            fireEventFallback(MarketplaceService.PromptPremiumPurchaseFinished, true)
+        end
     end
 end
 
 local function buildPurchaseOperation(id)
+    local code = "local MarketplaceService = game:GetService(\"MarketplaceService\")\n\n"
+    
     if LastPrompt.Type == "GamePass" then
-        return string.format(
-            "local MarketplaceService = game:GetService(\"MarketplaceService\")\n\nMarketplaceService:SignalPromptGamePassPurchaseFinished(%d, %d, true)",
-            LocalPlayer.UserId,
-            id
-        )
+        return code .. string.format("MarketplaceService:SignalPromptGamePassPurchaseFinished(%d, %d, true)", LocalPlayer.UserId, id)
+    elseif LastPrompt.Type == "Product" then
+        return code .. string.format("MarketplaceService:SignalPromptProductPurchaseFinished(%d, %d, true)", LocalPlayer.UserId, id)
+    elseif LastPrompt.Type == "Asset" then
+        return code .. string.format("MarketplaceService:SignalPromptPurchaseFinished(%d, %d, true)", LocalPlayer.UserId, id)
+    elseif LastPrompt.Type == "Bundle" then
+        return code .. string.format("MarketplaceService:SignalPromptBundlePurchaseFinished(%d, %d, true)", LocalPlayer.UserId, id)
+    elseif LastPrompt.Type == "Premium" then
+        return code .. "MarketplaceService:SignalPromptPremiumPurchaseFinished(true)"
     end
-    return string.format(
-        "local MarketplaceService = game:GetService(\"MarketplaceService\")\n\nMarketplaceService:SignalPromptProductPurchaseFinished(%d, %d, true)",
-        LocalPlayer.UserId,
-        id
-    )
+    return ""
 end
 
 local function positionCopyButton(freeBtn, copyBtn, parent)
