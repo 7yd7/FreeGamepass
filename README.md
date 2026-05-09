@@ -30,5 +30,6 @@ I highly recommend putting the script in AutoExec if you join random games.
 
 ## Games to try out a working script
 [Troll Easy Tower 👋](https://www.roblox.com/games/18458777099/Balloon-Game) | [WATER POLICE PRISON RUN! (Obby)](https://www.roblox.com/games/74377594190764/WATER-POLICE-PRISON-RUN) | [GUGUGAGA Penguin Prison Run!](https://www.roblox.com/games/125121521180859/GUGUGAGA-Penguin-Prison-Run) (Troll feature)
-| [Build Something! [🛠️]](https://www.roblox.com/games/83086735422134/Build-Something) (Not everything) | [🚨+1 Speed Hospital Rescue](https://www.roblox.com/games/105791676851991/1-Speed-Hospital-Rescue) (Not everything) | [Insane HD Admin Tower](https://www.roblox.com/games/123391723614409/Insane-HD-Admin-Tower) (Troll feature) | [Impossible Admin Tower](https://www.roblox.com/games/134293929668947/Impossible-Admin-Tower) (Troll feature) | 
+| [Build Something! [🛠️]](https://www.roblox.com/games/83086735422134/Build-Something) (Not everything) | [🚨+1 Speed Hospital Rescue](https://www.roblox.com/games/105791676851991/1-Speed-Hospital-Rescue) (Not everything) | [Insane HD Admin Tower](https://www.roblox.com/games/123391723614409/Insane-HD-Admin-Tower) (Troll feature) | [Impossible Admin Tower](https://www.roblox.com/games/134293929668947/Impossible-Admin-Tower) (Troll feature)
+> If a game isn't working, know it's been patched/fiexd
 
