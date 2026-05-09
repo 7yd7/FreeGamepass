@@ -26,7 +26,7 @@ I highly recommend putting the script in AutoExec if you join random games.
 ## Settings
 * CopyButton: Creates a copy button for the GamePass/Product so you can use it anywhere you want.
 * AutoButton: Creates a Auto button Runs the GamePass/Product loop.
-* InstantPurchase: InstantPurchase: Instantly completes purchases and closes the prompt gamepasses/products.
+* InstantPurchase: Instantly completes purchases and closes the prompt gamepasses/products.
 
 ## Games to try out a working script
 [Troll Easy Tower 👋](https://www.roblox.com/games/18458777099/Balloon-Game) | [WATER POLICE PRISON RUN! (Obby)](https://www.roblox.com/games/74377594190764/WATER-POLICE-PRISON-RUN) | [GUGUGAGA Penguin Prison Run!](https://www.roblox.com/games/125121521180859/GUGUGAGA-Penguin-Prison-Run) (Just a troll)
