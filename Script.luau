@@ -872,31 +872,79 @@ local function performAutoMassPurchase()
         local success, productsPage = pcall(function()
             return MarketplaceService:GetDeveloperProductsAsync()
         end)
-        if not success or not productsPage then return end
+        if success and productsPage then
+            while true do
+                local products = productsPage:GetCurrentPage()
+                for _, info in ipairs(products) do
+                    local id = info.ProductId
+                    local name = info.Name or "Unknown"
+                    local price = info.PriceInRobux or 0
+                    
+                    if isSettingEnabled("Debug") then
+                        print(string.format("Product: %s | %s | %s", tostring(name), tostring(id), tostring(price)))
+                    end
+                    
+                    local successSig = pcall(function()
+                        MarketplaceService:SignalPromptProductPurchaseFinished(LocalPlayer.UserId, id, true)
+                    end)
+                    if not successSig then
+                        fireEventFallback(MarketplaceService.PromptProductPurchaseFinished, LocalPlayer.UserId, id, true)
+                    end
+                    task.wait(0.1)
+                end
+                if productsPage.IsFinished then
+                    break
+                end
+                pcall(function() productsPage:AdvanceToNextPageAsync() end)
+            end
+        end
         
-        while true do
-            local products = productsPage:GetCurrentPage()
-            for _, info in ipairs(products) do
-                local id = info.ProductId
-                local name = info.Name or "Unknown"
-                local price = info.PriceInRobux or 0
-                
-                if isSettingEnabled("Debug") then
-                    print(string.format("%s | %s | %s", tostring(name), tostring(id), tostring(price)))
+        local HttpService = game:GetService("HttpService")
+        local universeId = game.GameId
+        if universeId == 0 then
+            pcall(function()
+                local res = game:HttpGet("https://apis.roblox.com/universes/v1/places/" .. tostring(game.PlaceId) .. "/universe")
+                local data = HttpService:JSONDecode(res)
+                if data and data.universeId then
+                    universeId = data.universeId
                 end
-                
-                local successSig = pcall(function()
-                    MarketplaceService:SignalPromptProductPurchaseFinished(LocalPlayer.UserId, id, true)
-                end)
-                if not successSig then
-                    fireEventFallback(MarketplaceService.PromptProductPurchaseFinished, LocalPlayer.UserId, id, true)
+            end)
+        end
+        
+        if universeId and universeId > 0 then
+            pcall(function()
+                local cursor = ""
+                while cursor do
+                    local url = "https://games.roblox.com/v1/games/" .. tostring(universeId) .. "/game-passes?limit=100"
+                    if cursor ~= "" then
+                        url = url .. "&cursor=" .. cursor
+                    end
+                    local res = game:HttpGet(url)
+                    local data = HttpService:JSONDecode(res)
+                    if data and data.data then
+                        for _, gp in ipairs(data.data) do
+                            local id = gp.id
+                            local name = gp.name or "Unknown"
+                            local price = gp.price or 0
+                            
+                            if isSettingEnabled("Debug") then
+                                print(string.format("GamePass: %s | %s | %s", tostring(name), tostring(id), tostring(price)))
+                            end
+                            
+                            local successSig = pcall(function()
+                                MarketplaceService:SignalPromptGamePassPurchaseFinished(LocalPlayer.UserId, id, true)
+                            end)
+                            if not successSig then
+                                fireEventFallback(MarketplaceService.PromptGamePassPurchaseFinished, LocalPlayer, id, true)
+                            end
+                            task.wait(0.1)
+                        end
+                        cursor = data.nextPageCursor
+                    else
+                        cursor = nil
+                    end
                 end
-                task.wait(0.1)
-            end
-            if productsPage.IsFinished then
-                break
-            end
-            pcall(function() productsPage:AdvanceToNextPageAsync() end)
+            end)
         end
     end)
 end
