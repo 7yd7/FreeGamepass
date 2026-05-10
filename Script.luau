@@ -6,10 +6,12 @@ getgenv().Settings = {
     AutoButton = false,
     AutoInterval = 0.1,
     -------------------
-    InstantPurchase = false
+    InstantPurchase = false,
+    -------------------
+    AutoMassPurchase = false,
+    Debug = false
 }
 ]]
-
 
 local CoreGui = game:GetService("CoreGui")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -40,6 +42,8 @@ local SETTINGS_DEFAULTS = {
     AutoButton = false,
     AutoInterval = 0.3,
     InstantPurchase = false,
+    AutoMassPurchase = false,
+    Debug = false,
 }
 
 local function getSettings()
@@ -258,6 +262,34 @@ local function capturePrompt(player, id, promptType)
         LastPrompt.Nonce = (LastPrompt.Nonce or 0) + 1
         LastPrompt.Id = id
         LastPrompt.Type = promptType
+
+        if isSettingEnabled("Debug") then
+            task.spawn(function()
+                local infoType
+                if promptType == "GamePass" then
+                    infoType = Enum.InfoType.GamePass
+                elseif promptType == "Product" then
+                    infoType = Enum.InfoType.Product
+                elseif promptType == "Asset" then
+                    infoType = Enum.InfoType.Asset
+                elseif promptType == "Bundle" then
+                    infoType = Enum.InfoType.Bundle
+                end
+                
+                if infoType then
+                    local success, info = pcall(function()
+                        return MarketplaceService:GetProductInfo(id, infoType)
+                    end)
+                    if success and info then
+                        print(string.format("%s | %s | %s", tostring(info.Name), tostring(id), tostring(info.PriceInRobux or 0)))
+                    else
+                        print(string.format("Unknown | %s | 0", tostring(id)))
+                    end
+                else
+                    print(string.format("Unknown | %s | 0", tostring(id)))
+                end
+            end)
+        end
 
         if isSettingEnabled("InstantPurchase") then
             task.spawn(function()
@@ -825,3 +857,40 @@ for _, child in ipairs(CoreGui:GetDescendants()) do
 end
 startInstantStateWatcher()
 startOverlayRescanLoop()
+
+local function performAutoMassPurchase()
+    if not isSettingEnabled("AutoMassPurchase") then return end
+    task.spawn(function()
+        local success, productsPage = pcall(function()
+            return MarketplaceService:GetDeveloperProductsAsync()
+        end)
+        if not success or not productsPage then return end
+        
+        while true do
+            local products = productsPage:GetCurrentPage()
+            for _, info in ipairs(products) do
+                local id = info.ProductId
+                local name = info.Name or "Unknown"
+                local price = info.PriceInRobux or 0
+                
+                if isSettingEnabled("Debug") then
+                    print(string.format("%s | %s | %s", tostring(name), tostring(id), tostring(price)))
+                end
+                
+                local successSig = pcall(function()
+                    MarketplaceService:SignalPromptProductPurchaseFinished(LocalPlayer.UserId, id, true)
+                end)
+                if not successSig then
+                    fireEventFallback(MarketplaceService.PromptProductPurchaseFinished, LocalPlayer.UserId, id, true)
+                end
+                task.wait(0.1)
+            end
+            if productsPage.IsFinished then
+                break
+            end
+            pcall(function() productsPage:AdvanceToNextPageAsync() end)
+        end
+    end)
+end
+
+performAutoMassPurchase()
