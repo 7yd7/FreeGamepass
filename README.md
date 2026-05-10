@@ -12,7 +12,7 @@ getgenv().Settings = {
     -------------------
     InstantPurchase = false,
     AutoMassPurchase = false,
-    ShowDebug = false,
+    Debug = false,
 }
 
 loadstring(game:HttpGet("https://raw.githubusercontent.com/7yd7/FreeGamepass/main/Script.luau"))()
