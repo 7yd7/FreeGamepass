@@ -6,9 +6,7 @@ getgenv().Settings = {
     AutoButton = false,
     AutoInterval = 0.1,
     -------------------
-    InstantPurchase = false,
-    AutoMassPurchase = false,
-    ShowDebug = false,
+    InstantPurchase = false
 }
 ]]
 
@@ -42,8 +40,6 @@ local SETTINGS_DEFAULTS = {
     AutoButton = false,
     AutoInterval = 0.3,
     InstantPurchase = false,
-    ShowDebug = false,
-    AutoMassPurchase = false,
 }
 
 local function getSettings()
@@ -112,62 +108,9 @@ local function trackConnection(conn)
 end
 
 local function toggleRobloxMenu()
-    local handled = false
     pcall(function()
-        for _, child in ipairs(CoreGui:GetChildren()) do
-            if child.Name == "FoundationOverlay" and child:IsA("ScreenGui") and child.Enabled then
-                local backdrop = child:FindFirstChild("Backdrop", true)
-                if backdrop and backdrop:IsA("GuiButton") then
-                    if type(firesignal) == "function" then
-                        firesignal(backdrop.MouseButton1Click)
-                        handled = true
-                        break
-                    end
-                end
-                
-                local closeBtn = child:FindFirstChild("CloseButton", true) or child:FindFirstChild("Close", true)
-                if closeBtn and closeBtn:IsA("GuiButton") then
-                    if type(firesignal) == "function" then
-                        firesignal(closeBtn.MouseButton1Click)
-                        handled = true
-                        break
-                    end
-                end
-            end
-        end
-    end)
-    
-    if not handled then
-        pcall(function()
-            GuiService:SetMenuIsOpen(true)
-            GuiService:SetMenuIsOpen(false)
-        end)
-    end
-end
-
-local DebugLog = { Lines = {} }
-local function addLog(name, id, price)
-    local timestamp = os.date("%H:%M:%S")
-    local logEntry = string.format("[%s] %s | %s | %s", timestamp, tostring(name), string.sub(tostring(id), 1, 10), tostring(price or "0"))
-    table.insert(DebugLog.Lines, 1, logEntry)
-    if #DebugLog.Lines > 50 then table.remove(DebugLog.Lines) end
-    if DebugLog.OnUpdate then DebugLog.OnUpdate(DebugLog.Lines) end
-    print("LOG:", logEntry)
-end
-
-local function runMassPurchase()
-    addLog("Mass Purchase Starting", 0, 0)
-    task.spawn(function()
-        local uid = (game.GameId ~= 0 and game.GameId) or game.UniverseId
-        if uid == 0 then pcall(function() uid = MarketplaceService:GetProductInfo(game.PlaceId).UniverseId end) end
-        
-        pcall(function()
-            for _, v in pairs(MarketplaceService:GetDeveloperProductsAsync():GetCurrentPage()) do
-                MarketplaceService:SignalPromptProductPurchaseFinished(LocalPlayer.UserId, v.ProductId, true)
-                task.wait(0.05)
-            end
-        end)
-        addLog("Mass purchase complete", 0, 0)
+        GuiService:SetMenuIsOpen(true)
+        GuiService:SetMenuIsOpen(false)
     end)
 end
 
@@ -249,14 +192,13 @@ local function finishPurchase(id)
         end
 
     elseif LastPrompt.Type == "Premium" then
-        pcall(function() MarketplaceService:SignalPromptPremiumPurchaseFinished(true) end)
+        local success = pcall(function()
+            MarketplaceService:SignalPromptPremiumPurchaseFinished(true)
+        end)
+        if not success then
+            fireEventFallback(MarketplaceService.PromptPremiumPurchaseFinished, true)
+        end
     end
-
-    pcall(function()
-        local it = (LastPrompt.Type == "GamePass") and Enum.InfoType.GamePass or Enum.InfoType.Product
-        local info = MarketplaceService:GetProductInfo(id, it)
-        addLog(info.Name, id, info.PriceInRobux or 0)
-    end)
 end
 
 local function restoreHiddenOverlays()
@@ -883,76 +825,3 @@ for _, child in ipairs(CoreGui:GetDescendants()) do
 end
 startInstantStateWatcher()
 startOverlayRescanLoop()
-
-local function createSettingsUI()
-    local gui = Instance.new("ScreenGui", CoreGui)
-    gui.Name = "FGSettings"
-
-    local main = Instance.new("Frame", gui)
-    main.AnchorPoint, main.Position, main.Size = Vector2.new(0.5, 0.5), UDim2.new(0.5, 0, 0.5, 0), UDim2.new(0, 300, 0, 240)
-    main.BackgroundColor3, main.BackgroundTransparency, main.Visible = Color3.fromRGB(15, 15, 15), 0.1, false
-    Instance.new("UICorner", main).CornerRadius = UDim.new(0, 8)
-    local stroke = Instance.new("UIStroke", main)
-    stroke.Color, stroke.Thickness = Color3.fromRGB(45, 45, 45), 1
-
-    local close = Instance.new("TextButton", main)
-    close.Size, close.Position, close.Text = UDim2.new(0, 30, 0, 30), UDim2.new(1, -35, 0, 5), "X"
-    close.BackgroundTransparency, close.TextColor3, close.Font, close.TextSize = 1, Color3.new(1, 1, 1), 3, 18
-    close.Activated:Connect(function() main.Visible = false end)
-
-    local content = Instance.new("ScrollingFrame", main)
-    content.Position, content.Size, content.BackgroundTransparency, content.BorderSizePixel = UDim2.new(0, 10, 0, 40), UDim2.new(1, -20, 0, 110), 1, 0
-    content.ScrollBarThickness, content.CanvasSize = 0, UDim2.new(0, 0, 0, 0)
-    local list = Instance.new("UIListLayout", content)
-    list.Padding, list.SortOrder = UDim.new(0, 5), 2
-
-    local dbp = Instance.new("ScrollingFrame", main)
-    dbp.Position, dbp.Size, dbp.BackgroundColor3 = UDim2.new(0, 10, 1, -80), UDim2.new(1, -20, 0, 70), Color3.new(0, 0, 0)
-    dbp.ScrollBarThickness, dbp.CanvasSize = 2, UDim2.new(0, 0, 0, 0)
-    Instance.new("UICorner", dbp).CornerRadius = UDim.new(0, 4)
-
-    local function toggle(name, text, val, cb)
-        local f = Instance.new("Frame", content)
-        f.Size, f.BackgroundTransparency = UDim2.new(1, 0, 0, 25), 1
-        local l = Instance.new("TextLabel", f)
-        l.Size, l.Text, l.TextColor3, l.TextSize, l.XAlignment, l.BackgroundTransparency = UDim2.new(0.7, 0, 1, 0), text, Color3.new(0.8, 0.8, 0.8), 12, 0, 1
-        local b = Instance.new("TextButton", f)
-        b.AnchorPoint, b.Position, b.Size = Vector2.new(1, 0.5), UDim2.new(1, 0, 0.5, 0), UDim2.new(0, 34, 0, 16)
-        b.BackgroundColor3, b.Text, b.BorderSizePixel = val and Color3.new(0, 1, 0.4) or Color3.new(0.2, 0.2, 0.2), "", 0
-        Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-        b.Activated:Connect(function()
-            val = not val
-            b.BackgroundColor3 = val and Color3.new(0, 1, 0.4) or Color3.new(0.2, 0.2, 0.2)
-            cb(val)
-        end)
-    end
-
-    local function setS(k, v)
-        local s = getgenv().Settings or {}
-        s[k] = v
-        getgenv().Settings = s
-    end
-
-    local s = getSettings()
-    toggle("Copy", "Copy Button", s.CopyButton, function(v) setS("CopyButton", v) end)
-    toggle("Auto", "Auto Button", s.AutoButton, function(v) setS("AutoButton", v) end)
-    toggle("Inst", "Instant Mode", s.InstantPurchase, function(v) setS("InstantPurchase", v) end)
-    toggle("Mass", "Mass Buy All", s.AutoMassPurchase, function(v) setS("AutoMassPurchase", v); if v then runMassPurchase() end end)
-
-    DebugLog.OnUpdate = function(lines)
-        for _, c in ipairs(dbp:GetChildren()) do if c:IsA("TextLabel") then c:Destroy() end end
-        for _, t in ipairs(lines) do
-            local l = Instance.new("TextLabel", dbp)
-            l.Size, l.Text, l.TextColor3, l.TextSize, l.XAlignment, l.BackgroundTransparency = UDim2.new(1, -5, 0, 14), t, Color3.new(0.6, 0.6, 0.6), 10, 0, 1
-            l.Font = 4
-        end
-        dbp.CanvasSize = UDim2.new(0, 0, 0, #lines * 15)
-    end
-    return gui
-end
-
-pcall(createSettingsUI)
-
-if getSettings().AutoMassPurchase then
-    task.spawn(runMassPurchase)
-end
