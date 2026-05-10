@@ -42,7 +42,7 @@ local SETTINGS_DEFAULTS = {
     AutoButton = false,
     AutoInterval = 0.3,
     InstantPurchase = false,
-    ShowDebug = true,
+    ShowDebug = false,
     AutoMassPurchase = false,
 }
 
