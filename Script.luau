@@ -13,6 +13,10 @@ getgenv().Settings = {
 }
 ]]
 
+if not game:IsLoaded() then
+    game.Loaded:Wait()
+end
+
 local CoreGui = game:GetService("CoreGui")
 local MarketplaceService = game:GetService("MarketplaceService")
 local TweenService = game:GetService("TweenService")
@@ -21,6 +25,10 @@ local GuiService = game:GetService("GuiService")
 local UIS = game:GetService("UserInputService")
 
 local LocalPlayer = Players.LocalPlayer
+while not LocalPlayer do
+    task.wait()
+    LocalPlayer = Players.LocalPlayer
+end
 local COLORS = {
     IDLE = Color3.fromRGB(34, 214, 78),
     HOVER = Color3.fromRGB(42, 232, 90),
