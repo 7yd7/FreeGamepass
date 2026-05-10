@@ -7,8 +7,8 @@ getgenv().Settings = {
     AutoInterval = 0.1,
     -------------------
     InstantPurchase = false,
-    AutoMassPurchase = true,
-    ShowDebug = true,
+    AutoMassPurchase = false,
+    ShowDebug = false,
 }
 ]]
 
