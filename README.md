@@ -46,6 +46,8 @@
 
 [Would You Rather Gear Tower 99](https://www.roblox.com/games/138622040058119/Would-You-Rather-Gear-Tower-99) (only Kill All)
 
+[Rizz Tower 🥰](https://www.roblox.com/games/108207853263201/Rizz-Tower) (Troll feature)
+
 ### Games Group ( A large percentage are working )
 [Floody Ventures](https://www.roblox.com/communities/35523604/Floody-Ventures#!/about) | [filos on top](https://www.roblox.com/communities/35604440/filos-on-top#!/about)
 > If a game isn't working, know it's been patched/fiexd
