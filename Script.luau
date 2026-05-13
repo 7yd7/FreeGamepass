@@ -43,6 +43,9 @@ local AUTO_COLORS = {
 }
 local TWEEN_SPEED = TweenInfo.new(0.045, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
 local SECONDARY_BUTTON_DELAY = 0.03
+local NEW_OVERLAY_BUTTON_INJECT_DELAY = 0
+local INSTANT_STATE_WATCH_INTERVAL = 0.03
+local OVERLAY_RESCAN_INTERVAL = 0.03
 local LastPrompt = { Id = nil, Type = nil, Nonce = 0 }
 local LastInstant = { PromptNonce = -1 }
 local SETTINGS_DEFAULTS = {
@@ -121,8 +124,33 @@ end
 
 local function toggleRobloxMenu()
     pcall(function()
-        GuiService:SetMenuIsOpen(true)
-        GuiService:SetMenuIsOpen(false)
+        local foundOverlay = false
+        for _, child in ipairs(CoreGui:GetChildren()) do
+            if child:IsA("ScreenGui") and child.Name == "FoundationOverlay" and child.Enabled then
+                local saf = child:FindFirstChild("SafeAreaFrame")
+                local portal = saf and saf:FindFirstChild("OverlayPortal")
+                local backdrop = portal and portal:FindFirstChild("Backdrop")
+                local sheet = portal and portal:FindFirstChild("SheetContainer")
+
+                if backdrop and sheet then
+                    foundOverlay = true
+                    local info = TweenInfo.new(0.1, Enum.EasingStyle.Cubic, Enum.EasingDirection.In)
+                    TweenService:Create(backdrop, info, {BackgroundTransparency = 1}):Play()
+                    local t = TweenService:Create(sheet, info, {Position = UDim2.new(0.5, 0, 0.5, 32)})
+                    t:Play()
+                    t.Completed:Connect(function()
+                        GuiService:SetMenuIsOpen(true)
+                        GuiService:SetMenuIsOpen(false)
+                    end)
+                    break
+                end
+            end
+        end
+
+        if not foundOverlay then
+            GuiService:SetMenuIsOpen(true)
+            GuiService:SetMenuIsOpen(false)
+        end
     end)
 end
 
@@ -301,7 +329,6 @@ local function capturePrompt(player, id, promptType)
 
         if isSettingEnabled("InstantPurchase") then
             task.spawn(function()
-                task.wait(0.05)
                 runInstantPurchase(id, { forceMenuToggle = false })
             end)
         end
@@ -383,6 +410,19 @@ local function settleFreeButtonPosition(originalBtn, freeBtn, parent)
     end)
 end
 
+local function getInjectedButtonsBaseOrder(parent)
+    local maxOrder = 0
+    for _, child in ipairs(parent:GetChildren()) do
+        if child:IsA("GuiObject") and child.Name ~= "FreeButton" and child.Name ~= "CopyButton" and child.Name ~= "AutoButton" then
+            local order = child.LayoutOrder or 0
+            if order > maxOrder then
+                maxOrder = order
+            end
+        end
+    end
+    return maxOrder
+end
+
 local function getParentState(parent)
     local state = ParentButtonState[parent]
     if not state then
@@ -414,7 +454,7 @@ local function layoutInjectedButtons(parent)
     local hasListLayout = parent:FindFirstChildOfClass("UIListLayout") ~= nil
 
     if hasListLayout then
-        local baseOrder = template and (template.LayoutOrder or 0) or 0
+        local baseOrder = getInjectedButtonsBaseOrder(parent)
         if freeBtn then freeBtn.LayoutOrder = baseOrder + 1 end
         if copyBtn then copyBtn.LayoutOrder = baseOrder + 2 end
         if autoBtn then autoBtn.LayoutOrder = baseOrder + 3 end
@@ -792,7 +832,7 @@ local function startInstantStateWatcher()
                 end
                 wasEnabled = isEnabled
             end
-            task.wait(0.1)
+            task.wait(INSTANT_STATE_WATCH_INTERVAL)
         end
     end)
 end
@@ -810,7 +850,7 @@ local function startOverlayRescanLoop()
                     end
                 end
             end
-            task.wait(0.15)
+            task.wait(OVERLAY_RESCAN_INTERVAL)
         end
     end)
 end
@@ -828,35 +868,54 @@ function handleOverlay(child, force)
         end
 
         task.spawn(function()
-            while child and child.Parent and isCurrentRun() and isSettingEnabled("InstantPurchase") do
+            local function check()
+                if not (child and child.Parent and isSettingEnabled("InstantPurchase")) then return true end
                 local safeArea = child:FindFirstChild("SafeAreaFrame")
                 local portal = safeArea and safeArea:FindFirstChild("OverlayPortal")
-
                 if portal then
                     executeInstant()
+                    return true
                 end
-                task.wait(0.05)
+                return false
+            end
+
+            if not check() then
+                local conn
+                conn = trackConnection(child.DescendantAdded:Connect(function()
+                    if check() then
+                        if conn then conn:Disconnect() end
+                    end
+                end))
             end
         end)
         return
     end
 
-    local actions = getActions(child)
-    if actions then
+    local function scanButtonsWithDelay()
+        if not (child and child.Parent and isCurrentRun() and not isSettingEnabled("InstantPurchase")) then return false end
+        if not force then
+            task.wait(NEW_OVERLAY_BUTTON_INJECT_DELAY)
+        end
+        if not (child and child.Parent and isCurrentRun() and not isSettingEnabled("InstantPurchase")) then return false end
+        local actions = getActions(child)
+        if not actions then return false end
         scanActions(actions)
-    else
-        local conn
-        conn = trackConnection(child.DescendantAdded:Connect(function()
-            local actions = getActions(child)
-            if actions then
-                if conn then conn:Disconnect() end
-                scanActions(actions)
-            end
-        end))
-        task.delay(10, function()
-            if conn then conn:Disconnect() end
-        end)
+        return true
     end
+
+    if scanButtonsWithDelay() then
+        return
+    end
+
+    local conn
+    conn = trackConnection(child.DescendantAdded:Connect(function()
+        if scanButtonsWithDelay() then
+            if conn then conn:Disconnect() end
+        end
+    end))
+    task.delay(10, function()
+        if conn then conn:Disconnect() end
+    end)
 end
 
 trackConnection(CoreGui.DescendantAdded:Connect(handleOverlay))
