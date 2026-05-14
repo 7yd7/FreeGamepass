@@ -1,5 +1,9 @@
-
 # Games to try out a working script
+
+[اصعب باركور بالعالم](https://www.roblox.com/games/138076729638829/unnamed) (only Reset All)
+
+[حرب القنابل الاصلي](https://www.roblox.com/games/116635984204928/unnamed) (Troll feature)
+
 [Troll Easy Tower 👋](https://www.roblox.com/games/98500085153940/Troll-Easy-Tower)
 
 [Balloon Game 🎈](https://www.roblox.com/games/18458777099/Balloon-Game) 
